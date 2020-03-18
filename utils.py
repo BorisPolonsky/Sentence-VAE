@@ -12,11 +12,6 @@ class OrderedCounter(Counter, OrderedDict):
     def __reduce__(self):
         return self.__class__, (OrderedDict(self),)
 
-def to_var(x, volatile=False):
-    if torch.cuda.is_available():
-        x = x.cuda()
-    return Variable(x, volatile=volatile)
-
 
 def idx2word(idx, i2w, pad_idx):
 
@@ -28,7 +23,7 @@ def idx2word(idx, i2w, pad_idx):
 
             if word_id == pad_idx:
                 break
-            sent_str[i] += i2w[str(word_id)] + " "
+            sent_str[i] += i2w[str(word_id.item())] + " "
 
         sent_str[i] = sent_str[i].strip()
 

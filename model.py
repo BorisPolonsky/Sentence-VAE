@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn_utils
-from utils import to_var
 
 class SentenceVAE(nn.Module):
 
@@ -71,7 +70,7 @@ class SentenceVAE(nn.Module):
         logv = self.hidden2logv(hidden)
         std = torch.exp(0.5 * logv)
 
-        z = to_var(torch.randn([batch_size, self.latent_size]))
+        z = torch.randn([batch_size, self.latent_size], device=std.device)
         z = z * std + mean
 
         # DECODER
@@ -118,10 +117,11 @@ class SentenceVAE(nn.Module):
 
         if z is None:
             batch_size = n
-            z = to_var(torch.randn([batch_size, self.latent_size]))
+            z = torch.randn([batch_size, self.latent_size])
+            if torch.cuda.is_available:
+                z = z.cuda()
         else:
             batch_size = z.size(0)
-
         hidden = self.latent2hidden(z)
 
         if self.bidirectional or self.num_layers > 1:
@@ -133,7 +133,7 @@ class SentenceVAE(nn.Module):
         # required for dynamic stopping of sentence generation
         sequence_idx = torch.arange(0, batch_size, out=self.tensor()).long() # all idx of batch
         sequence_running = torch.arange(0, batch_size, out=self.tensor()).long() # all idx of batch which are still generating
-        sequence_mask = torch.ones(batch_size, out=self.tensor()).byte()
+        sequence_mask = torch.ones(batch_size, out=self.tensor()).bool()
 
         running_seqs = torch.arange(0, batch_size, out=self.tensor()).long() # idx of still generating sequences with respect to current loop
 
@@ -143,10 +143,9 @@ class SentenceVAE(nn.Module):
         while(t<self.max_sequence_length and len(running_seqs)>0):
 
             if t == 0:
-                input_sequence = to_var(torch.Tensor(batch_size).fill_(self.sos_idx).long())
+                input_sequence = torch.empty(batch_size).fill_(self.sos_idx).long().to(self.embedding.weight.device)
 
             input_sequence = input_sequence.unsqueeze(1)
-
             input_embedding = self.embedding(input_sequence)
 
             output, hidden = self.decoder_rnn(input_embedding, hidden)
@@ -159,7 +158,7 @@ class SentenceVAE(nn.Module):
             generations = self._save_sample(generations, input_sequence, sequence_running, t)
 
             # update gloabl running sequence
-            sequence_mask[sequence_running] = (input_sequence != self.eos_idx).data
+            sequence_mask[sequence_running] = (input_sequence != self.eos_idx)
             sequence_running = sequence_idx.masked_select(sequence_mask)
 
             # update local running sequences

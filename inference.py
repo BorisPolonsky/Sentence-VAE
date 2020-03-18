@@ -4,7 +4,7 @@ import torch
 import argparse
 
 from model import SentenceVAE
-from utils import to_var, idx2word, interpolate
+from utils import idx2word, interpolate
 
 
 def main(args):
@@ -36,9 +36,10 @@ def main(args):
 
     model.load_state_dict(torch.load(args.load_checkpoint))
     print("Model loaded from %s"%(args.load_checkpoint))
-
+    device = torch.device("cpu")
     if torch.cuda.is_available():
-        model = model.cuda()
+        device = torch.device("cuda")
+        model = model.to(device)
     
     model.eval()
 
@@ -48,7 +49,7 @@ def main(args):
 
     z1 = torch.randn([args.latent_size]).numpy()
     z2 = torch.randn([args.latent_size]).numpy()
-    z = to_var(torch.from_numpy(interpolate(start=z1, end=z2, steps=8)).float())
+    z = torch.from_numpy(interpolate(start=z1, end=z2, steps=8)).float().to(device)
     samples, _ = model.inference(z=z)
     print('-------INTERPOLATION-------')
     print(*idx2word(samples, i2w=i2w, pad_idx=w2i['<pad>']), sep='\n')
