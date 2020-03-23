@@ -180,7 +180,7 @@ class SentenceVAE(nn.Module):
 
         if mode == 'greedy':
             _, sample = torch.topk(dist, 1, dim=-1)
-        sample = sample.squeeze()
+        sample = sample.squeeze(-1).squeeze(-1) # Reason for not using single `squeeze()` call: preserve batch axis in case batch size is 1.
 
         return sample
 
